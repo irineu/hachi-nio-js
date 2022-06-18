@@ -1,8 +1,9 @@
 {
   "name": "hachi-nio",
-  "version": "1.0.0",
+  "version": "0.0.2",
   "description": "Hachi NIO protocol lib for NodeJS",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "test": "mocha"
   },

@@ -1,159 +1,159 @@
-var net = require('net');
-var events = require('events');
-var uuid = require("node-uuid");
-var util = require('util');
+import net from 'net'
+import { EventEmitter } from 'events'
+import uuid from 'node-uuid'
+import util from 'util'
+
 /**
 * Server Impl
 **/
 
-var ProtocolServer = function(port,debug){
-	var instance = this;
-	instance.port = port;
-	instance.debug = debug || false;
-	this.setup();
-}
+class ProtocolServer extends EventEmitter{
+    constructor(port, debug){
+        super();
+        this.port = port;
+        this.debug = debug || false;
 
-util.inherits(ProtocolServer, events.EventEmitter);
+        this.setup();
+    }
 
-ProtocolServer.prototype.setup = function(){
-	var instance = this;
-	instance.server = net.createServer(function(socket){
+    setup(){
+	    this.server = net.createServer((socket) => {
 
-		socket.id = uuid.v4();
-		socket.chunck = {
-			messageSize : 0,
-			headerSize:0,
-			buffer: new Buffer(0),
-			bufferStack: new Buffer(0)
-		};
+            socket.id = uuid.v4();
+            socket.chunck = {
+                messageSize : 0,
+                headerSize:0,
+                buffer: new Buffer.alloc(0),
+                bufferStack: new Buffer.alloc(0)
+            };
 
-		instance.emit("client_connected",socket);
+            const instance = this;
 
-		socket.on("close",function(had_error){
-			instance.emit("client_close",this,had_error);
-		});
+            instance.emit("client_connected",socket);
 
-		socket.on("end", function(){
-			instance.emit("client_end",this);
-		});
+            socket.on("close",function(had_error){
+                instance.emit("client_close",this,had_error);
+            });
 
-		socket.on('data', function(data){
+            socket.on("end", function(){
+                instance.emit("client_end",this);
+            });
 
-			if(instance.debug) console.log("EP","IN",socket.remoteAddress +":"+socket.remotePort,data.length);
+            socket.on('data', function(data){
 
-			module.exports.recieve(this,data,function(socket,headerBuffer,dataBuffer){
-				try{
-					var header = JSON.parse(headerBuffer);
-					if(header.transaction == "HEARTBEAT"){
-						//ignore
-					}else{
-						instance.emit("data",socket,header,dataBuffer);
-					}
-				}catch(e){
-					console.error(e.message);
-					console.error(e.stack);
-				}
-			});
+                if(instance.debug) console.log("HACHI-NIO","IN",socket.remoteAddress +":"+socket.remotePort,data.length);
+
+                mod.recieve(this,data,function(socket,headerBuffer,dataBuffer){
+                    try{
+                        var header = JSON.parse(headerBuffer);
+                        if(header.transaction == "HEARTBEAT"){
+                            //ignore
+                        }else{
+                            instance.emit("data",socket,header,dataBuffer);
+                        }
+                    }catch(e){
+                        console.error(e.message);
+                        console.error(e.stack);
+                    }
+                });
+            });
+
+            socket.on("timeout", function(){
+                instance.emit("client_timeout",this);
+            });
+
+            socket.on("error", function(err){
+                instance.emit("client_error",this,err);
+            });
         });
 
-        socket.on("timeout", function(){
-        	instance.emit("client_timeout",this);
+        this.server.on('error',(err) => {
+            this.emit("server_error",err);
         });
-
-        socket.on("error", function(err){
-        	instance.emit("client_error",this,err);
+    
+        this.server.on('listening',() => {
+            this.emit("server_listening");
         });
-	});
-
-	instance.server.on('error',function(err){
-		instance.emit("server_error",err);
-	});
-
-	instance.server.on('listening',function(){
-		instance.emit("server_listening");
-	});
-
-	instance.server.listen(instance.port, '0.0.0.0');
+    
+        this.server.listen(this.port, '0.0.0.0');
+    }
 }
 
 /**
 * Client Impl
 **/
 
-var ProtocolClient = function(ip, port,timeout,debug){
-	var instance = this;
-	instance.ip = ip;
-	instance.port = port;
-	instance.debug = debug || false;
-	instance.timeout = timeout;
-	this.setup();
+class ProtocolClient extends EventEmitter{
+    constructor(ip, port,timeout,debug){
+        super();
+        this.ip = ip;
+        this.port = port;
+        this.debug = debug || false;
+        this.timeout = timeout;
+        this.setup();
+    }
+
+    reconnect(){
+        this.setup();
+    }
+
+    setup(){
+
+        this.socket = new net.Socket();
+
+        this.socket.connect(this.port,this.ip);
+
+        this.socket.on('connect', () => {
+            this.chunck = {
+                messageSize : 0,
+                headerSize:0,
+                buffer: new Buffer.alloc(0),
+                bufferStack: new Buffer.alloc(0)
+            };
+
+            this.emit("client_connected",this.socket);
+        });
+
+        this.socket.on('data', (data) => {
+
+            if(this.debug) console.log("HACHI-NIO","IN", this.socket.remoteAddress +":"+this.socket.remotePort,data.length);
+
+            mod.recieve(this, data, (socket,headerBuffer,dataBuffer)=> {
+                let header = JSON.parse(headerBuffer);
+                if(header.transaction == "HEARTBEAT"){
+                    //ignore
+                }else{
+                    this.emit("data", socket, header, dataBuffer);
+                }
+
+            });
+        });
+
+        this.socket.on('end', () => {
+            this.emit("client_end",this.socket);
+        });
+
+        this.socket.on('close', (had_error) => {
+            this.emit("client_close",this.socket,had_error);
+        });
+
+        this.socket.on('timeout', () => {
+            mod.send(this, { transaction:"HEARTBEAT", type: "REQUEST",id: mod.generateId("HB")},"");
+            this.emit("client_timeout",this.socket);
+        });
+
+        this.socket.on('error', (err) => {
+            this.emit("client_error",this.socket,err);
+        });
+
+        if(this.timeout){
+            this.socket.setTimeout(this.timeout);
+        }
+            
+    }
 }
 
-util.inherits(ProtocolClient, events.EventEmitter);
-
-ProtocolClient.prototype.reconnect = function(){
-	var instance = this;
-	this.setup();
-	//instance.socket.connect(instance.port,instance.ip);
-}
-
-ProtocolClient.prototype.setup = function(){
-	var instance = this;
-	instance.socket = new net.Socket();
-
-	instance.socket.connect(instance.port,instance.ip);
-
-	instance.socket.on('connect', function(){
-		this.chunck = {
-			messageSize : 0,
-			headerSize:0,
-			buffer: new Buffer(0),
-			bufferStack: new Buffer(0)
-		};
-
-		this.setTimeout(10000,function(){
-
-		});
-		instance.emit("client_connected",this);
-	});
-
-	instance.socket.on('data', function(data){
-
-		if(instance.debug) console.log("EP","IN",instance.socket.remoteAddress +":"+instance.socket.remotePort,data.length);
-
-		module.exports.recieve(this,data,function(socket,headerBuffer,dataBuffer){
-			var header = JSON.parse(headerBuffer);
-			if(header.transaction == "HEARTBEAT"){
-				//ignore
-			}else{
-				instance.emit("data",socket,header,dataBuffer);
-			}
-
-		});
-	});
-
-	instance.socket.on('end', function(){
-		instance.emit("client_end",this);
-	});
-
-	instance.socket.on('close', function(had_error){
-		instance.emit("client_close",this,had_error);
-	});
-
-	instance.socket.on('timeout', function(){
-		module.exports.send(this, {transaction:"HEARTBEAT", type: "REQUEST",id:module.exports.generateId("HB")},"");
-		instance.emit("client_timeout",this);
-	});
-
-	instance.socket.on('error', function(err){
-		instance.emit("client_error",this,err);
-	});
-
-	if(instance.timeout)
-		instance.socket.setTimeout(instance.timeout);
-};
-
-module.exports = {
+const mod = {
 	client : ProtocolClient,
 	server : ProtocolServer,
     send: function(clientSocket, header, data, callback) {
@@ -162,9 +162,9 @@ module.exports = {
     		return console.error("EP","OUT","SOCKET IS DESTROYED!");
     	}
 
-        var bufferHeader = new Buffer(JSON.stringify(header), "utf8");
-        var bufferData = new Buffer(data, "utf8");
-        var consolidatedBuffer = new Buffer(8 + bufferHeader.length + bufferData.length);
+        var bufferHeader = new Buffer.from(JSON.stringify(header), "utf8");
+        var bufferData = new Buffer.from(data, "utf8");
+        var consolidatedBuffer = new Buffer.alloc(8 + bufferHeader.length + bufferData.length);
 
         consolidatedBuffer.writeInt32LE(bufferHeader.length + bufferData.length + 8, 0);
         consolidatedBuffer.writeInt32LE(bufferHeader.length, 4);
@@ -217,3 +217,5 @@ module.exports = {
         } while (reCheck);
     }
 }
+
+export default mod;
