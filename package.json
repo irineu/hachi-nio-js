@@ -1,0 +1,30 @@
+{
+  "name": "hachi-nio",
+  "version": "1.0.0",
+  "description": "Hachi NIO protocol lib for NodeJS",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/irineu/hachi-nio-js.git"
+  },
+  "keywords": [
+    "NIO",
+    "Networking",
+    "Socket"
+  ],
+  "author": "Irineu Antunes",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/irineu/hachi-nio-js/issues"
+  },
+  "homepage": "https://github.com/irineu/hachi-nio-js#readme",
+  "dependencies": {
+    "node-uuid": "^1.4.8"
+  },
+  "devDependencies": {
+    "mocha": "^10.0.0"
+  }
+}
