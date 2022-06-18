@@ -1,4 +1,4 @@
-# Hachi NIO protocol lib for NodeJS [![Build Status](https://travis-ci.org/irineu/hachi-nio-js.svg?branch=master)](https://travis-ci.org/irineu/hachi-nio-js)
+# Hachi NIO protocol lib for NodeJS
 
 Hachi Protocol is a lightwight network I/O socket communication format to transfer data between applications based on my old project [irineu/eight-protocol](https://github.com/irineu/eight-protocol). 
 
