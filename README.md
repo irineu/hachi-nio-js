@@ -19,41 +19,43 @@ Binary Data, you can pass anything here
 
 ##### Server
 ```javascript
-var hachi = require("hachi-nio");
-var server =  new hachi.server(7890);
+import hachiNIO from "hachi-nio";
 
-server.on('server_listening', function(){
-	console.log("Server ir up! Now waiting for connections");
+let server = new hachiNIO.server(7890);
+
+server.on('server_listening', () => {
+	console.log("Server is up! Now waiting for connections");
 });
 
-server.on('client_connected', function(socketClient){
-	console.log("NEW CLIENT CONNECTED!");
+server.on('client_connected', (socketClient) => {
+	console.log("NEW CLIENT CONNECTED! \t id:"+socketClient.id+" origin:"+socketClient.address().address);
 });
 
-server.on("data", function(socketClient, header, dataBuffer){
-	console.log("MESSAGE RECEIVED!",header,dataBuffer.toString());
+server.on('client_close', (socketClient) => {
+	console.log("CLIENT DISCONNECTED! \t id:"+socketClient.id);
 });
 
-server.on('client_close', function(socketClient){
-	console.log("CLIENT DISCONNECTED!");
+server.on("data", (socketClient, header, dataBuffer) => {
+	console.log("MESSAGE RECEIVED! \t id:"+socketClient.id+" message:"+dataBuffer.toString());
 });
 ```
 
 ##### Client
 ```javascript
-var hachi = require("hachi-nio");
-var client = new hachi.client("0.0.0.0", 7890);
+import hachiNIO  from "../../index.js";
+
+var client = new hachiNIO.client("0.0.0.0",7890);
 
 client.on("client_connected", function(socket){
 	console.log("Connected on the server");
 	//Send message
-	protocol.send(socket, {transaction : "GREETINGS"}, "Hello World!");
+	hachiNIO.send(socket, {transaction : "GREETINGS"}, "Hello World!");
 })
 ```
 
 ## API
 
-`protocol.send(socket, header, buffer, [callback]);`
+`hachiNIO.send(socket, header, buffer, [callback]);`
 Send a message for the given socket.
 * Socket - The nodejs socket from the new connection callback
 * Header - Key/Value object, it will be converted internally to a JSON String
@@ -61,7 +63,7 @@ Send a message for the given socket.
 * Callback (optional) - A callback function with and error parameter if it have
 
 ### Server
-`new hachi.server(port, [debug]);`
+`new hachiNIO.server(port, [debug]);`
 Instantiate a new server and try to start listen imediatly
 * port - must be an integer, it will be the respective TCP port to listen
 * debug (optional) - must be a boolean, if `true`, the lib will print some informations like message size, incoming bytes, outcoming bytes, etc.

@@ -2,9 +2,9 @@
 //IT WILL NOT WORK WITH TELNET CLIENT!!!
 ////////////////////////////////////////
 
-import protocol  from "../../index.js";
+import hachiNIO  from "../../index.js";
 
-let server = new protocol.server(7890);
+let server = new hachiNIO.server(7890);
 
 server.on('server_listening', () => {
 	console.log("Server is up! Now waiting for connections");
