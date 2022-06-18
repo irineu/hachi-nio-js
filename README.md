@@ -83,7 +83,7 @@ Instantiate a new server and try to start listen imediatly
 
 ### Client
 
-`new hachi.client(address, port, timeout, debug)`
+`new hachiNIO.client(address, port, timeout, debug)`
 
 Instantiate a new client and try connect imediatly
 
