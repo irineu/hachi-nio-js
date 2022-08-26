@@ -2,7 +2,7 @@
 
 Hachi Protocol is a lightwight network I/O socket communication format to transfer data between applications based on my old project [irineu/eight-protocol](https://github.com/irineu/eight-protocol). 
 
-<img src="http://34.207.234.120/hachi-protocol.svg" height="100" valign="middle"> for <img src="http://34.207.234.120/logo-node-js-512.png" height="80" valign="bottom">
+<img src="http://irineuantunes.com/hachi-protocol.svg" height="100" valign="middle"> for <img src="http://irineuantunes.com/logo-node-js-512.png" height="80" valign="bottom">
 
 ## Objective
 When you test a simple socket communication, in the more of times everything works fine, but when your project grow up, after publish and test with remote and bad connections, you will get some problems with truncated messages or messages with extra data (part of the next message). It is normal. You'll need create a protocol to handle this situation, maybe implement a header or a terminator (bad ideia), maybe you are already frustated with that notice.
