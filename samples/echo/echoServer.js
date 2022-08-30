@@ -20,4 +20,5 @@ server.on('client_close', (socketClient) => {
 
 server.on("data", (socketClient, header, dataBuffer) => {
 	console.log("MESSAGE RECEIVED! \t id:"+socketClient.id+" message:"+dataBuffer.toString());
+	hachiNIO.send(socketClient, header, "Hello World!");
 });
