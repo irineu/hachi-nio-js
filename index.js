@@ -1,4 +1,6 @@
 import net from 'net'
+import tls from 'tls'
+import fs from 'fs'
 import { EventEmitter } from 'events'
 import uuid from 'node-uuid'
 import util from 'util'
@@ -8,16 +10,24 @@ import util from 'util'
 **/
 
 class ProtocolServer extends EventEmitter{
-    constructor(port, debug){
+    constructor(port, tlsOptions){
         super();
         this.port = port;
-        this.debug = debug || false;
+        this.secure = tlsOptions != null;
+        
+        if(this.secure){
+            this.tlsOptions = {
+                key: fs.readFileSync(tlsOptions.key),
+                cert: fs.readFileSync(tlsOptions.cert)
+            }
+        }
 
         this.setup();
     }
 
     setup(){
-	    this.server = net.createServer((socket) => {
+
+	    let cb = (socket) => {
 
             socket.id = uuid.v4();
             socket.chunck = {
@@ -41,7 +51,7 @@ class ProtocolServer extends EventEmitter{
 
             socket.on('data', function(data){
 
-                if(instance.debug) console.log("HACHI-NIO","IN",socket.remoteAddress +":"+socket.remotePort,data.length);
+                if(process.env.HACHI_NIO_DEBUG) console.log("HACHI-NIO","IN",socket.remoteAddress +":"+socket.remotePort,data.length);
 
                 mod.recieve(this,data,function(socket,headerBuffer,dataBuffer){
                     try{
@@ -65,7 +75,13 @@ class ProtocolServer extends EventEmitter{
             socket.on("error", function(err){
                 instance.emit("client_error",this,err);
             });
-        });
+        };
+
+        if(this.secure){
+            this.server = tls.createServer(this.tlsOptions, cb);
+        }else{
+            this.server = net.createServer(cb);
+        }
 
         this.server.on('error',(err) => {
             this.emit("server_error",err);
@@ -83,13 +99,16 @@ class ProtocolServer extends EventEmitter{
 * Client Impl
 **/
 
+process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = '0';
+
+
 class ProtocolClient extends EventEmitter{
-    constructor(ip, port,timeout,debug){
+    constructor(ip, port,timeout, tlsOptions){
         super();
         this.ip = ip;
         this.port = port;
-        this.debug = debug || false;
         this.timeout = timeout;
+        this.tlsOptions = tlsOptions;
         this.setup();
     }
 
@@ -99,10 +118,17 @@ class ProtocolClient extends EventEmitter{
 
     setup(){
 
-        this.socket = new net.Socket();
+        if(this.tlsOptions){
+            this.socket = tls.connect({
+                host: this.host,
+                port: this.port
+            })
+        }else{
+            this.socket =  new net.Socket();
+            this.socket.connect(this.port,this.ip);
+        }
 
-        this.socket.connect(this.port,this.ip);
-
+    
         this.socket.on('connect', () => {
             this.chunck = {
                 messageSize : 0,
@@ -116,7 +142,7 @@ class ProtocolClient extends EventEmitter{
 
         this.socket.on('data', (data) => {
 
-            if(this.debug) console.log("HACHI-NIO","IN", this.socket.remoteAddress +":"+this.socket.remotePort,data.length);
+            if(process.env.HACHI_NIO_DEBUG) console.log("HACHI-NIO","IN", this.socket.remoteAddress +":"+this.socket.remotePort,data.length);
 
             mod.recieve(this, data, (socket,headerBuffer,dataBuffer)=> {
                 let header = JSON.parse(headerBuffer);
@@ -171,7 +197,7 @@ const mod = {
         bufferHeader.copy(consolidatedBuffer, 8);
         bufferData.copy(consolidatedBuffer, bufferHeader.length + 8);
 
-        if(this.debug) console.log("EP","OUT",clientSocket.remoteAddress +":"+clientSocket.remotePort,consolidatedBuffer.length);
+        if(process.env.HACHI_NIO_DEBUG) console.log("EP","OUT",clientSocket.remoteAddress +":"+clientSocket.remotePort,consolidatedBuffer.length);
 
         clientSocket.write(consolidatedBuffer, function(err) {
             if (err && callback) {
@@ -206,8 +232,10 @@ const mod = {
                 clientSocket.chunck.messageSize = 0;
                 clientSocket.chunck.headerSize = 0;
 
-                if(this.debug) console.log("EP","RECOGNIZED-HEADER",bufferHeader.length);
-                if(this.debug) console.log("EP","RECOGNIZED-DATA",bufferData.length);
+                if(process.env.HACHI_NIO_DEBUG) {
+                    console.log("EP","RECOGNIZED-HEADER",bufferHeader.length);
+                    console.log("EP","RECOGNIZED-DATA",bufferData.length);
+                }
 
                 clientSocket.chunck.bufferStack = clientSocket.chunck.bufferStack.slice(bufferHeader.length + bufferData.length + 8);
 

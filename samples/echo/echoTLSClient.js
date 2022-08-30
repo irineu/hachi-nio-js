@@ -4,7 +4,7 @@
 
 import hachiNIO  from "../../index.js";
 
-var client = new hachiNIO.client("0.0.0.0",7890);
+var client = new hachiNIO.client("0.0.0.0",7890, null, {});
 
 client.on("data", function(socket, header, dataBuffer){
     console.log(dataBuffer.toString())
