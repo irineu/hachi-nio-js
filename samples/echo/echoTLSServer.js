@@ -5,8 +5,8 @@
 import hachiNIO  from "../../index.js";
 
 let server = new hachiNIO.server(7890, {
-    key: '/Users/t736609/Desktop/projects/CPP/FraudDetector/relay-mtls/crt-03/server-key.pem',
-    cert: '/Users/t736609/Desktop/projects/CPP/FraudDetector/relay-mtls/crt-03/server-crt.pem',
+    key: 'server-key.pem',
+    cert: 'server-crt.pem',
 });
 
 server.on('server_listening', () => {
