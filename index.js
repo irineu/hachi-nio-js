@@ -226,7 +226,7 @@ const mod = {
                 if(inPrefixBuffer.compare(PREFIX_BUFFER) != 0){
                     console.log("Protocol problem.");
                     console.log(inPrefixBuffer,PREFIX_BUFFER);
-                    clientSocket.write("Protocol problem.", function(err) {
+                    clientSocket.write("Protocol problem.\n", function(err) {
                         clientSocket.end();
                     });
                 }
