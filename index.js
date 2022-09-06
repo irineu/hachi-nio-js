@@ -5,6 +5,8 @@ import { EventEmitter } from 'events'
 import uuid from 'node-uuid'
 import util from 'util'
 
+const PROTOCOL_PREFIX = 8
+const PREFIX_BUFFER = new Buffer.from("HNIO");
 /**
 * Server Impl
 **/
@@ -130,7 +132,7 @@ class ProtocolClient extends EventEmitter{
 
     
         this.socket.on('connect', () => {
-            this.chunck = {
+            this.socket.chunck = {
                 messageSize : 0,
                 headerSize:0,
                 buffer: new Buffer.alloc(0),
@@ -141,14 +143,13 @@ class ProtocolClient extends EventEmitter{
         });
 
         this.socket.on('data', (data) => {
-
             if(process.env.HACHI_NIO_DEBUG) console.log("HACHI-NIO","IN", this.socket.remoteAddress +":"+this.socket.remotePort,data.length);
-
-            mod.recieve(this, data, (socket,headerBuffer,dataBuffer)=> {
+            mod.recieve(this.socket, data, (socket,headerBuffer,dataBuffer)=> {
                 let header = JSON.parse(headerBuffer);
                 if(header.transaction == "HEARTBEAT"){
                     //ignore
                 }else{
+                    console.log(dataBuffer.toString())
                     this.emit("data", socket, header, dataBuffer);
                 }
 
@@ -190,15 +191,18 @@ const mod = {
 
         var bufferHeader = new Buffer.from(JSON.stringify(header), "utf8");
         var bufferData = new Buffer.from(data, "utf8");
-        var consolidatedBuffer = new Buffer.alloc(8 + bufferHeader.length + bufferData.length);
+        var consolidatedBuffer = new Buffer.alloc(PROTOCOL_PREFIX + PREFIX_BUFFER.length + bufferHeader.length + bufferData.length);
 
-        consolidatedBuffer.writeInt32LE(bufferHeader.length + bufferData.length + 8, 0);
-        consolidatedBuffer.writeInt32LE(bufferHeader.length, 4);
-        bufferHeader.copy(consolidatedBuffer, 8);
-        bufferData.copy(consolidatedBuffer, bufferHeader.length + 8);
+        PREFIX_BUFFER.copy(consolidatedBuffer, 0);
+        consolidatedBuffer.writeInt32LE(bufferHeader.length + bufferData.length + PROTOCOL_PREFIX + PREFIX_BUFFER.length, PREFIX_BUFFER.length);
+        consolidatedBuffer.writeInt32LE(bufferHeader.length, PREFIX_BUFFER.length + 4);
+        bufferHeader.copy(consolidatedBuffer, PROTOCOL_PREFIX + PREFIX_BUFFER.length);
+        bufferData.copy(consolidatedBuffer, bufferHeader.length + PROTOCOL_PREFIX + PREFIX_BUFFER.length);
 
-        if(process.env.HACHI_NIO_DEBUG) console.log("EP","OUT",clientSocket.remoteAddress +":"+clientSocket.remotePort,consolidatedBuffer.length);
-
+        if(process.env.HACHI_NIO_DEBUG){
+            console.log("EP","OUT",clientSocket.remoteAddress +":"+clientSocket.remotePort,consolidatedBuffer.length);
+        }
+            
         clientSocket.write(consolidatedBuffer, function(err) {
             if (err && callback) {
                 callback(err);
@@ -216,18 +220,30 @@ const mod = {
         var reCheck = false;
         do {
             reCheck = false;
-            if (clientSocket.chunck.messageSize == 0 && clientSocket.chunck.bufferStack.length >= 4) {
-                clientSocket.chunck.messageSize = clientSocket.chunck.bufferStack.readInt32LE(0);
+
+            if(clientSocket.chunck.messageSize == 0 && clientSocket.chunck.bufferStack.length >= PREFIX_BUFFER.length){
+                let inPrefixBuffer = clientSocket.chunck.bufferStack.slice(0, PREFIX_BUFFER.length);
+                if(inPrefixBuffer.compare(PREFIX_BUFFER) != 0){
+                    console.log("Protocol problem.");
+                    console.log(inPrefixBuffer,PREFIX_BUFFER);
+                    clientSocket.write("Protocol problem.", function(err) {
+                        clientSocket.end();
+                    });
+                }
             }
 
-            if(clientSocket.chunck.bufferStack.length >= 8){
-            	clientSocket.chunck.headerSize = clientSocket.chunck.bufferStack.readInt32LE(4);
+            if (clientSocket.chunck.messageSize == 0 && clientSocket.chunck.bufferStack.length >= PREFIX_BUFFER.length + 4) {
+                clientSocket.chunck.messageSize = clientSocket.chunck.bufferStack.readInt32LE(PREFIX_BUFFER.length);
+            }
+
+            if(clientSocket.chunck.bufferStack.length >= PROTOCOL_PREFIX + PREFIX_BUFFER.length){
+            	clientSocket.chunck.headerSize = clientSocket.chunck.bufferStack.readInt32LE(PREFIX_BUFFER.length + 4);
             }
 
             if (clientSocket.chunck.messageSize != 0 && clientSocket.chunck.bufferStack.length >= clientSocket.chunck.messageSize) {
 
-                var bufferHeader = clientSocket.chunck.bufferStack.slice(8, clientSocket.chunck.headerSize + 8);
-                var bufferData = clientSocket.chunck.bufferStack.slice(clientSocket.chunck.headerSize + 8, clientSocket.chunck.messageSize);
+                var bufferHeader = clientSocket.chunck.bufferStack.slice(PROTOCOL_PREFIX + PREFIX_BUFFER.length, clientSocket.chunck.headerSize + PROTOCOL_PREFIX + PREFIX_BUFFER.length);
+                var bufferData = clientSocket.chunck.bufferStack.slice(clientSocket.chunck.headerSize + PROTOCOL_PREFIX + PREFIX_BUFFER.length, clientSocket.chunck.messageSize);
 
                 clientSocket.chunck.messageSize = 0;
                 clientSocket.chunck.headerSize = 0;
@@ -237,7 +253,7 @@ const mod = {
                     console.log("EP","RECOGNIZED-DATA",bufferData.length);
                 }
 
-                clientSocket.chunck.bufferStack = clientSocket.chunck.bufferStack.slice(bufferHeader.length + bufferData.length + 8);
+                clientSocket.chunck.bufferStack = clientSocket.chunck.bufferStack.slice(bufferHeader.length + bufferData.length + PROTOCOL_PREFIX + PREFIX_BUFFER.length);
 
                 callback(clientSocket, bufferHeader, bufferData);
                 reCheck = clientSocket.chunck.bufferStack.length > 0;
