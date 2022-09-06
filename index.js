@@ -149,7 +149,6 @@ class ProtocolClient extends EventEmitter{
                 if(header.transaction == "HEARTBEAT"){
                     //ignore
                 }else{
-                    console.log(dataBuffer.toString())
                     this.emit("data", socket, header, dataBuffer);
                 }
 
