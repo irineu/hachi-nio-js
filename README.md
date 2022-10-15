@@ -63,10 +63,10 @@ Send a message for the given socket.
 * Callback (optional) - A callback function with and error parameter if it have
 
 ### Server
-`new hachiNIO.server(port, [debug]);`
+`new hachiNIO.server(port, [tlsOptions]);`
 Instantiate a new server and try to start listen imediatly
 * port - must be an integer, it will be the respective TCP port to listen
-* debug (optional) - must be a boolean, if `true`, the lib will print some informations like message size, incoming bytes, outcoming bytes, etc.
+* tlsOptions (optional) - if set, must be an object ({key: "path", cert:"path"}) to establish a TLS connection
  
 ##### Events
 
@@ -83,14 +83,14 @@ Instantiate a new server and try to start listen imediatly
 
 ### Client
 
-`new hachiNIO.client(address, port, timeout, debug)`
+`new hachiNIO.client(address, port, [timeout], [tlsOptions])`
 
 Instantiate a new client and try connect imediatly
 
 * Address - Must me and string, should be the remote ip address
 * port - must be an integer, it will be the respective TCP port to listen
 * timeout (optional) - must be an integer, will set the socket timeout (see more at https://nodejs.org/api/net.html#net_socket_settimeout_timeout_callback)
-* debug (optional) - must be a boolean, if true, the lib will print some informations like message size, incoming bytes, outcoming bytes, etc.
+* tlsOptions (optional) - If set, must be an empty object just to start the socket as a TLS connection
 
 ##### Events
 
